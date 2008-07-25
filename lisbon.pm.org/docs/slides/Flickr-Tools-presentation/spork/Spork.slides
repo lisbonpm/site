@@ -1,0 +1,471 @@
+----
+presentation_topic: Flickr-Tools
+presentation_title: A Flickr of Perl
+presentation_place: Lisbon.pm tech meeting
+presentation_date: November 16th, 2005
+----
+== Table of Contents
+* About Flickr
+* The little application that could
+* Principles of design behind the modules
+* Implementing the whole thing
+* Conclusion and final remarks
+----
+== About Flickr
+
+{image: http://flickr.com/images/flickr_logo_beta.gif}
+
+Flickr (http://flickr.com/) is a photo organization and sharing site which enables the users to very effectively organize, categorize, tag and show off their photo collections with varying degrees of control over who is allowed to do what on their photos.
+
++* Does anyone not know what Flickr is?
++* Has anyone not used Flickr at all?
+
+----
+== Flickr Organization
+
+Flickr allows the user to organize his/her photo collection based on several alternative (but complimentary) methods:
++* _The Photostream_ - a chronological list of all the user's photos;
++* _Photosets_ - collections of photos created and maintained by the user;
++* _Tags_ - special names that the user may associate with each photo;
++* _Favorites_ - photos the user selects (from his/her or others' photostreams).
+
+----
+== Flickr Organization (continued)
+
+All of the methods discussed are possible to use on any photo. It is possible and even very beneficial to have a single photo belong to several /photosets/ (say vacations, traveling and beaches) and to have several /tags/ associated with it (sunset, sea, sand, ...)
+
+The criteria used to assign photos to /photosets/ and /tags/ to photos is a personal choice and it's discussion is beyond the scope of this presentation. Let us just assume that the user does organize all the photos in some sort of sensible way.
+
+----
+== Flickr Organization (continued)
+
+While all the methods discussed allow for the organization of the user's own photos, the /favorites/ list is the only method that a user has to manage other people's photos.
+
+Additionally, the user may also submit a photo to be entered into one or more /groups/. This touches on the social aspects of the site which are briefly discussed later on.
+
+----
+== People and Flickr
+
+Flickr is made primarily for people. Therefore there are a number of ways that interaction with people is taken into account.
+
+People may be the owner of the photo (the user), other Flickr users or anonymous viewers of the site. Even other users may fall into further categorization.
+
+This categorization of people is essential to the working of the permissions model which is discussed further on.
+
+For now let us simply get to know which groups there are which are relevant to us...
+
+----
+== Grouping people
+
+Flickr categorizes people into the following groups:
+
+* The owner of the photos - referred to throughout this presentation as /the user/;
+* The anonymous, unwashed masses (i.e. anonymous viewers);
+* Other users;
+* Other users who were marked as /contacts/ of this user;
+* Other users who were marked as /friends/ of this user;
+* Other users who were marked as /family/ of this user;
+
+A Flickr user may belong to zero or more of the later 3 groups. This feature is important because a /friend/ or a /family/ member is automatically a /contact/, but a /friend/ may or may not be /family/ and vice-versa (some families just don't get along...) :-)
+
+----
+== Social Flickr
+
+Flickr supports the notion of /groups/ which are formed of people which share some kind of common interest and which allow their members to assign some of their own photos to the group photo pool.
+
+In this way the notion of communities is introduced into the site.
+
+----
+== Permissions and access control
+
+Flickr aims at being the place where you put all your photos (which you want to have on-line) even if they are only meant to be shared with a few other people (or with no one else at all).
+
+Also, as was previously stated, people may be allowed to interact with other peoples photos in a number of ways, from commenting to marking them as favorites, etc.
+
+All of this requires that there be a mechanism to authenticate and authorize people to see and otherwise manipulate the photos.
+
+----
+== Permissions and access control (continued)
+
+Fortunately we don't have to worry ourselves about all this since Flickr handles this process for us.
+
+However, we do have to be aware of the authentication mechanism that is used and how to interact with it.
+
+Further details will be provided in the section about the web API but for now please keep in mind that a user may categorize other people in Flickr according to the groups already mentioned and that he may assign different kinds of permissions to each photo as relating to each of those groups (i.e. my /friends/ may see this picture, but not my /family/ or my contacts).
+
+----
+== More than just a pretty site
+
+So far we've discussed the features of the Flickr site itself, which are probably already familiar to all of you.
+
++But now we go into the *good stuff*!
+
+----
+== And now for something completely different...
+
+Introducing the flickr web API.
+
+Flickr not only allows us to use it's services via the web in the traditional browser-based way, but it also provides a group of web services providing what it calls it's /web API/.
+
+This API (you *do know* what an API is, right?) allows for practically any kind of manipulation you care to make on your Flickr photos and account information.
+
+I say practically because the API was in a semi-permanent state of flux until a few months ago when I stopped following it's development so closely and I don't quite know what's the status today.
+
++Anyone care to investigate and report back on the next meeting? ;-)
+
+----
+== The API
+
+The Flickr API is documented at http://flickr.com/services/api/.
+
+There are mainly three ways of using the API: REST, XML-RPC and SOAP.
+
+The Flickr-Tools distribution is a wrapper for another module called Flickr::API which uses the REST interface.
+
+----
+== The REST API
+
+The REST API in itself is very simple to understand and to use, here is an example of a request using that format:
+
+  http://www.flickr.com/services/rest/?method=flickr.test.echo&name=value
+
+And the response to a REST request is by default a REST response of the following form:
+
+  <?xml version="1.0" encoding="utf-8" ?>
+  <rsp stat="ok">
+    [xml-payload-here]
+  </rsp>
+
+Or, if an error occurred:
+
+  <?xml version="1.0" encoding="utf-8" ?>
+  <rsp stat="fail">
+    <err code="[error-code]" msg="[error-message]" />
+  </rsp>
+
+----
+== Examples of methods
+
+These are examples of methods that are supported by the API:
+
+|flickr.people.findByEmail|
++
+Which takes the *email* address as its argument
++
+And returns something like this:
+
+  <user nsid="12037949632@N01">
+    <username>Stewart</username> 
+  </user>
+
+----
+== Examples of methods
+
+Or
+
+|flickr.people.getPublicPhotos|
++
+Which takes the following arguments:
+
+* *user_id*
+* *extras*: extra fields to get for each photo returned
+* *per_page*: number of photos to return per page (maximum of 500)
+* *page*: the page we are on
++
+And returns something like this:
+
+  <photos page="2" pages="89" perpage="10" total="881">
+    <photo id="2636" owner="47058503995@N01" secret="a123456" server="2" title="test_04" ispublic="1" isfriend="0" isfamily="0" />
+    <photo id="2635" owner="47058503995@N01" secret="b123456" server="2" title="test_03" ispublic="0" isfriend="1" isfamily="1" />
+    <photo id="2633" owner="47058503995@N01" secret="c123456" server="2" title="test_01" ispublic="1" isfriend="0" isfamily="0" />
+    <photo id="2610" owner="12037949754@N01" secret="d123456" server="2" title="00_tall" ispublic="1" isfriend="0" isfamily="0" />
+  </photos>
+
+----
+== Examples of methods
+
+Or even
+
+|flickr.photos.getExif|
++
+Which takes the following arguments:
+
+* *photo_id*
+* *secret*
++
+And returns
+
+  <photo id="4424" secret="06b8e43bc7" server="2">
+    <exif tagspace="TIFF" tagspaceid="1" tag="271" label="Manufacturer">
+      <raw>Canon</raw>
+    </exif>
+    <exif tagspace="EXIF" tagspaceid="0" tag="33437" label="Aperture">
+      <raw>90/10</raw>
+      <clean>f/9</clean>
+    </exif>
+    <exif tagspace="GPS" tagspaceid="3" tag="4" label="Longitude">
+      <raw>64/1, 42/1, 4414/100</raw>
+      <clean>64° 42' 44.14"</clean>
+    </exif>
+  </photo>
+
+----
+== The little application that could
+
++... that could get me started, that is!
+
+As everything in Perl (well, almost everything) things start out small and practical...
+
++All I wanted to do was to write a small script that would connect to my Flickr account, get all the photos I had organized under a given /photoset/ and create a page where they were displayed together with comments and information (EXIF) about them.
+
++Simple enough, right?
+
+----
+== Sure, it starts simple...
+
+If you go to the API documentation pages you find out that Cal Henderson (http://iamcal.com/), who works at Flickr, has already made a couple of Perl distros that allow Perl to use the API without much fuss: |Flickr::API| and |Flickr::Upload|.
+
+Great, I found out that |Flickr::API| is extremely easy to use and started using for my first prototypes.
+
+----
+== And it worked great...
+
+  # Find a given photoset...
+
+  my $api = new Flickr::API({'key' => $flickr_api_key});
++
+  # Get the nsid from the username
+  my $response = $api->execute_method('flickr.people.findByUsername', {
+    'username' => $flickr_username
+  });
+  testError($response);
+
+  my $goodies = $response->{tree}{children}[1]{attributes};
+  my $nsid = $goodies->{nsid};
+  print "Got nsid: $nsid\n" if $DEBUG;
++
+  # Now get the required photoset's ID
+  # Start by getting the photosets
+  $response = $api->execute_method('flickr.photosets.getList', {
+    'user_id' => $nsid
+  });
+  testError($response);
++
+  # Then cycle through them...
+  my $photoset_id;
+  foreach $goodies (@{$response->{tree}{children}[1]{children}}) {
+    next unless (defined($goodies->{name}) and ($goodies->{name} eq 'photoset'));
+    my $found_photoset=0;
+    foreach my $this_photoset (@{$goodies->{children}}) {
+      next unless (defined($this_photoset->{name}) and ($this_photoset->{name} eq 'title'));
+      if ($this_photoset->{children}[0]{content} eq $desired_photoset) {
+        # BINGO!!
+        $found_photoset = 1;
+        last;
+      }
+    }
+    if ($found_photoset) {
+      $photoset_id = $goodies->{attributes}{id};
+      last;
+    }
+}
+
++And so on, you can get at the code at http://wiki.nunonunes.org/tiki-index.php?page=FlickrizeMyPhotolog if you are enough of a masochist. It even has versioning!
+
+----
+== But...
+
+Soon I started to try to get fancy and get more information on the photos and while parsing the XML result for a few photos was easy enough, parsing a number of replies, all of them somewhat different in some way soon grew tiring.
+
+----
+== The beginnings of the idea
+
+So I of course stopped hacking at the script (which is just so ugly I won't even show it here) ;-) and started to think about what I would like to have as a way of working with Flickr.
+
+I thought about it for a while and even asked for opinions both at my personal weblog (http://nowhereland.nunonunes.org/archives/perl_stuff/index.html) and at my use.perl journal (http://use.perl.org/~gambuzino/journal/).
+
+After a while I had gathered my thoughts enough to go for the first try at it.
+
+----
+== Design principles of the modules
+
+So what were the main ideas behind the design of the modules?
+
++0 I wanted to completely abstract away the notion of the XML communication with the server;
++0 I wanted to have a layer which dealt with the Flickr::API module and that would give me back a "sane" representation of whatever entity I get back from the network (/photos/, /photosets/, /people/, etc);
++0 I then wanted to have another layer which dealt with the entities I /really want to deal with/: a person, a photo, a photoset...
+
+----
+= Design principles of the modules
+
+In short I wanted to deal with questions like:
+
+* Which photos do I have stored in Flickr?
+* What is the name of this photo?
+* What aperture was used in this photo?
+* What tags are assigned to this photo?
+* What is the name of this person?
+* How many photos has this person got stored in Flickr?
+
++... as opposed to:
+
+* In which field do I find the photocount of this user?
+* Do I use the /username/ attribute or the /real name/ in this particular call? (and yes, stuff like this *is different* for different calls)
+
+----
+== Starting out slow
+
+So I knew I couldn't do everything at once. Even if I could some things were changing as I developed the code...
+
+So I decide to implement what I needed for my little "photolog" script to work and take it from there...
+
+----
+== Implementation
+
+As I mentioned earlier there are essentially two levels or groups of classes in the Flickr-Tools distribution:
+
+* A lower API-mapping level which uses the Flickr::API:: namespace;
+* A higher concept-mapping level which uses the Flickr:: namespace.
+
+----
+== The Flickr::API:: classes
+
+These are the lower-level API-mapping classes.
+These go into the Flickr::API namespace and are named following the Flickr API's naming convention, namely there should be the following classes:
+
+* Flickr::API::People
+* Flickr::API::Photos
+* Flickr::API::Photosets
+* Flickr::API::...
+
+Each of these classes should then implement the functions that are published on the API, for instance Flickr::API::Photos::getInfo(), Flickr::API::Photos::search() and so on.
+
+----
+== The Flickr::API:: classes (continued)
+
+These classes do all the hard work of formating the request to the API, parsing all the response XML and putting all the interesting information in a structure which can be easily manipulated by Perl.
+
+The goal is to eventually cover all of the API provided by Flickr, covering photos, photosets, people, blogs, favorites, groups, contacts, notes, tags, ...
+
+-----
+== The Flickr:: classes
+
+These are the higher-level concepts-mapping classes.
+These classes map concepts such as a user or a photo. These objects rely on the previous ones to manage the communication with Flickr for them and should implement a representation of all the information that Flickr has on each item.
+
+The following classes are available in this level:
+
+* Flickr::Person
+* Flickr::Photo
+* Flickr::Photoset
+* Flickr::...
+
+----
+== The Flickr:: classes (continued)
+
+By using the Flickr::API:: classes to do the communications work these classes can focus on what a programmer wants for his/her application.
+
+On a typical photo application you want to focus on a given photo, it's information, it's owner, etc and with these classes you can do just that.
+
+When there are multiple ways to get a given piece of information it is these classes job to decide how best to get it (ex: you can get the user's public photos by either using the search function |flickr.photos.search| provided by the |Flickr::API::Photos| class or you can just use the |flickr.people.getPublicGroups| provided by the |Flickr::API::People| class).
+
+----
+== The little application that can
+
+So now the application I used as an example previously cold be written as simply as this:
+
+  use Flickr::Person;
+
+  my $me = Flickr::Person->new($flickr_api_key);
+
+  if ($me->find({email=>$my_email}) {
+    my $my_albums = $me->photosets();
+
+    foreach my $album (@{$my_albums}) {
+      if ($album->title() eq $desired_photoset) {
+        # BINGO!!
+      }
+    }
+  }
+
+----
+== The present
+
+So where is Flickr-Tools now?
+
+At this moment the Flickr-Tools tool-set is rather limited, I spent much more time dealing with the XML parsing and communication issues (that is, dealing with the Flickr::API:: classes) than with the really useful classes of the Flickr:: namespace.
+
+However the work under the hood is mostly done and so it is now easy to add functionality to the upper layer classes.
+
+----
+== Authentication
+
+Except for the authentication part...
+
+The authentication mechanism for the API underwent a massive change while I was occupied elsewhere so the new mechanism must be written into the Flickr::API:: classes.
+
+And so I will give a brief description of what is needed just in case someone here wants to have a go at it...
+
+----
+== Before I start - developer keys
+
+Before explaining the authentication principles I must point out that if you want to use the Flickr API you must register yourself and get a /developer key/.
+
+This key will be sent along with each and every request to the Flickr server and will allow you to get access to the API methods.
+
++Recently though things have changed a little and now there are *application keys* which are to be used with every application and are not interchangeable between them, even if they belong to the same developer.
+
+----
+== Authentication - the old way
+
+When the last version of the distribution was written the authentication mechanism consisted of sending the username and password of the Flickr user in plain text in the URL.
+
++Yes, this was very bad indeed...
+
+----
+== Authentication - the new style
+
+Although I haven't read the full spec (at least the final version of it), the new authentication method goes something like this:
+
++0 The application decides it needs to be authenticated in order to access some set of information;
++0 The application creates a token and calls an authentication URL in Flickr, sending along the application key and the token;
++0 The user must explicitly give consent on the Flickr page for this application to access it's Flickr data;
++0 If the user has agreed to it the application is then authorized to access this user's data and the subsequent requests are then successful.
+
++The user has a choice of not authorizing the application to access his/her data, authorizing for this session or authorize forever.
+
+----
+== Authentication - go read about it
+
+This was a very rough description of the authentication process, if you wish to help out go look it up at http://flickr.com/services/api/misc.userauth.html.
+
+----
+== Conclusion and final remarks
+
+Flickr-Tools aims at being a more natural way of interacting with your photos and all the data that surrounds them.
+
+It is far from finished, but it has been dead in the water for the last few months.
+
+The next steps will probably be along the lines of implementing the new authentication mechanism and dealing with large sets of information.
+
+----
+== Conclusion and final remarks (continued)
+
+Right now Flickr-Tools can deal with as much as it can store in memory and this is no good at all! :-)
+
+For a user with more than 500 photos, for example, the |flickr.photos.search| method must be used to retrieve them, but it only returns 500 photos at a time at most.
+
+There must be a way to implement the fetching of more information "/behind the scenes/" when a user is cycling through the photos of the user. This obvious approach to this problem is one based in a iterator and the challenge is how to implement something like this while not breaking the philosophy of the Flickr:: classes (I don't want to even know what an iterator is, I want to do something like $bob->photos() and get all of Bob's photos).
+
+Probably something like
+
+  while (my $photo = $bob->photos()) {
+    # do something extremely clever with it
+  }
+
+is acceptable...
+
+----
+== Conclusions and final remarks (continued)
+
+Any ideas?

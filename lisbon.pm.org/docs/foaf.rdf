@@ -1,0 +1,33 @@
+<rdf:RDF
+	xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+	xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:foaf="http://xmlns.com/foaf/0.1/" >
+
+<foaf:Group rdf:nodeID="group">
+	<foaf:name>Lisbon Perl Mongers</foaf:name>
+	<rdfs:seeAlso>http://lisbon.pm.org/</rdfs:seeAlso>
+	
+
+        <!-- Members -->
+	<foaf:member>
+		<foaf:Person>
+			<foaf:name>Nuno Nunes</foaf:name>
+			<rdfs:seeAlso rdf:resource='http://nunonunes.org/foaf.rdf'/>
+		</foaf:Person>
+	</foaf:member>
+	<foaf:member>
+		<foaf:Person>
+			<foaf:name>Pedro Melo</foaf:name>
+			<rdfs:seeAlso rdf:resource='http://www.simplicidade.org/foaf.rdf'/>
+		</foaf:Person>
+	</foaf:member>
+	<foaf:member>
+		<foaf:Person>
+			<foaf:name>José Castro</foaf:name>
+		</foaf:Person>
+	</foaf:member>
+	<foaf:interest rdf:resource='http://perl.org/' dc:title='Perl'/>
+</foaf:Group>
+
+</rdf:RDF>

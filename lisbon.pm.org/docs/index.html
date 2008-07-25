@@ -1,0 +1,60 @@
+<html>
+<head>
+<title>Lisbon.pm.org</title>
+<style type="text/css">
+.banner {float: right}
+</style>
+</head>
+<body>
+
+<!--
+<div class="banner" align="right" valign="top">
+<a href="http://www.railsconfeurope.com/"><img src="images/120x600.jpg" alt="Rails Conf" title="Rails Conf" border="0" ></a>
+</div>
+-->
+
+<pre>
+#!/usr/bin/perl -w
+
+use strict;
+use PM::Lisbon;
+
+our $blog               = '<a href="http://lisbon.pm.org/blog">http://lisbon.pm.org/blog</a>';
+
+our $ics_calendar       = '<a href="webcal://icalx.com/public/cog/perl.community.ics">webcal://icalx.com/public/cog/perl.community.ics</a>';
+
+our $slides             = '<a href="http://lisbon.pm.org/slides">http://lisbon.pm.org/slides</a>';
+
+our $mailing_list       = {
+                            'address'            =&gt; '<a href="mailto:perl@lisbon.pm.org">perl@lisbon.pm.org</a>',
+                            'subscribe'          =&gt; '<a href="mailto:perl-subscribe@lisbon.pm.org">perl-subscribe@lisbon.pm.org</a>',
+                          };
+
+our $announcements_list = {
+                            'address'            =&gt; '<a href="mailto:eventos@lisbon.pm.org">eventos@lisbon.pm.org</a>',
+                            'subscribe'          =&gt; '<a href="mailto:eventos-subscribe@lisbon.pm.org">eventos-subscribe@lisbon.pm.org</a>',
+                          };
+
+our $leader             = {
+                            'name'               =&gt; 'Jos&eacute; Castro',
+                            'email'              =&gt; 'cog@cpan.org',
+                          };
+
+our $statistics         = {
+                            'members'            =&gt; 126,   # and counting
+                            'mails_per_month'    =&gt; 225,
+                            'socials_per_month'  =&gt; 1,
+                            'techs_per_month'    =&gt; 0.25,
+                            'girls_on_the_group' =&gt; 6,
+                            'girls_ratio'        =&gt; 0.05,
+                          };
+
+our @social_meetings    = map { first _thursday } @months;
+our $social_location    = 'Saloio na 24 de Julho' # more info on the mailing list
+
+our @tech_meetings      = ( 'Randomly Scheduled' ); # check <a href="http://lisbon.pm.org/blog">the blog</a> or the mailing lists
+
+__END__
+</pre>
+</body>
+</html>

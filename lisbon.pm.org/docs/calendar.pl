@@ -1,0 +1,475 @@
+#!/usr/bin/perl 
+
+use strict;
+use warnings;
+
+our $VERSION = 1.0;
+
+use CGI::Pretty;
+use CGI::Carp qw/fatalsToBrowser/;
+use Tie::iCal;
+use POSIX;
+use Encode;
+use LWP::Simple;
+use Data::Dumper;
+
+my $Q = new CGI;
+
+my $ical_file = get_ics('/tmp');
+print calendario(dados($ical_file));
+#print $Q->header, $Q->start_html;
+#print dados($ical_file);
+
+sub calendario {
+
+    my $eventos = shift;
+    
+    my $out = $Q->header;
+    $out .= $Q->start_html(
+        {
+            TITLE  => 'Lisbon Perl Mongers - Calendar',
+            STYLE  => { CODE => css()},
+            SCRIPT => { CODE => js() },
+        },
+    );
+    $out .= $Q->h1('Lisbon Perl Mongers - Calendar');
+    $out .= formata_dados({DADOS=> $eventos});
+    $out .= $Q->end_html;
+
+    return $out;
+}
+
+sub dados {
+
+    my $file = shift;
+    
+    tie my %lpm, 'Tie::iCal', $file or die "Failed to tie file!\n";
+    my $eventos;
+    my $rep = {};
+
+    foreach my $it1 (keys %lpm) {
+        my $evento = @{$lpm{$it1}}[1];
+        my (@dt_inicio, @hr_inicio, @dt_fim, @hr_fim);
+
+        foreach my $it2 (keys %$evento) {
+            (@dt_inicio) = $evento->{DTSTART}[1]=~/^(\d{4})(\d{2})(\d{2})/gmx;
+            (@hr_inicio) = $evento->{DTSTART}[1]=~/T(\d{2})(\d{2})(\d{2})[Z]?$/gmx;
+            (@dt_fim) = $evento->{DTEND}[1] =~/^(\d{4})(\d{2})(\d{2})/gmx;
+            (@hr_fim) = $evento->{DTEND}[1]=~/T(\d{2})(\d{2})(\d{2})[Z]?$/gmx;
+        }
+
+        push @{ 
+            $eventos->{substr $evento->{DTSTART}[1],0,4}
+            ->{substr $evento->{DTSTART}[1],4,2}
+            ->{substr $evento->{DTSTART}[1],6,2} 
+        }, {
+            DATA_INICIO => (join q{/},@dt_inicio) || undef, #parse_datas({DATA=>$evento->{DTSTART}[1]}) || undef, #
+            HORA_INICIO => (join q{:},@hr_inicio) || undef, #parse_datas({HORA=>$evento->{DTSTART}[1]}) || undef,
+            DATA_FIM => (join q{/},@dt_fim) || undef, #parse_datas({DATA=>$evento->{DTEND}[1] || undef}),
+            HORA_FIM => (join q{:},@hr_fim) || undef, #parse_datas({HORA=>$evento->{DTEND}[1] || undef}),
+            SUMARIO => strip_str($evento->{SUMMARY}),
+            DESCRICAO => strip_str($evento->{DESCRIPTION}) || undef,
+            DURACAO => $evento->{DURATION} || undef,
+            LOCAL => strip_str($evento->{LOCATION}) || undef,
+            URI => ($evento->{URL}[1] ? '<a href="'
+                . $evento->{URL}[1] 
+                . '">' 
+                . $evento->{URL}[1] 
+                . '</a>' 
+                : undef
+            ),
+            ORGANIZADOR => (
+                $evento->{ORGANIZER}[0] ?
+                $evento->{ORGANIZER}[0]{'CN'}
+                . '&nbsp;'
+                . forge_email($evento->{ORGANIZER}[1])
+                : undef
+            ),
+        };
+
+
+        # Por enquanto, só trabalhamos com repetições mensais
+        if ($evento->{RRULE} && $evento->{RRULE}->{FREQ} eq 'MONTHLY') {
+            $rep->{(scalar keys %$rep) + 1} = add_rep($evento);
+        }
+    }
+
+#return dump_it($rep);
+
+#return dump_it(\%lpm);
+    untie %lpm;
+#return dump_it($eventos);
+    return $eventos;
+
+}
+
+sub add_rep {
+
+    my $self = shift;
+    my $limite = 4; # month_name
+    return $self;
+}
+
+sub parse_datas {
+
+    my $self = shift;
+
+    #use DateTime::Format::ICal;
+    #if ( $self->{DATA}) {
+    #    my $dt = DateTime::Format::ICal->parse_datetime($self->{DATA})->dmy;
+    #    return $dt;
+    #} elsif ( $self->{HORA} ) {
+    #    return DateTime::Format::ICal->parse_datetime($self->{HORA})->hms;
+    #}
+
+    return;
+}
+
+sub month_name {
+    my $month = shift;
+    return POSIX::strftime(q{%B}, 0, 0, 0, 0, $month, 0, 0);
+}
+
+sub datas {
+    my (@data) = @_;
+    my $out = POSIX::strftime( q{%A, %B %d, %Y}, 0, 0, 0, $data[0], $data[1] - 1,
+        ($data[2] - 1900) );
+    return $out;
+}
+
+sub strip_str {
+
+    my $self = shift;
+    my $out = decode_utf8($self);
+    $out =~s/\\,/,/gmx;
+    $out =~s/\\n/<br \/>/gmx;
+    return $out;
+}
+
+sub conv_data {
+    my (@data) = split q{/}, shift;
+    return join q{/}, reverse @data;
+}
+
+sub forge_email {
+    my $self = shift;
+    my $email = $self;
+    $email =~s/mailto://gmx;
+    $email =~s/\./ dot /gmx;
+    $email =~s/\@/ at /gmx;
+    return '(' . $email . ')';
+}
+
+sub get_ics {
+    my $dir = shift;
+    my $file = "$dir/lpm.ics";
+    my $ics = get('http://lisbon.pm.org/calendar.ics') or die 'URL incorrecto!';
+    open my $FILE, q{>}, $file or die "Erro ao abrir ficheiro para gravar $!";
+    print $FILE $ics;
+    close $FILE;
+
+    return $file;
+}
+
+sub dump_it {
+    my $self = shift;
+    my $out = $Q->start_pre;
+    $out .= Dumper($self);
+    $out .= $Q->end_pre;
+    return $out;
+}
+
+sub formata_dados {
+
+    my $self = shift;
+
+    my $out;
+    foreach my $ano (sort {$b<=>$a} keys %{$self->{DADOS}}) {
+        $out .= formata_ano(
+            {
+                ANO => $ano,
+                DADOS => $self->{DADOS}->{$ano},
+            }
+        );
+    }
+
+    return $out;
+}
+
+sub formata_dia {
+
+    my $self = shift;
+
+    my $out = $Q->start_ul({CLASS=>'caixa'});
+    $out .= $Q->start_li();
+    $out .= $Q->h4(datas($self->{DIA},$self->{MES},$self->{ANO}));
+
+    my $i = 1;
+    $out .= $Q->start_ul({CLASS=>'evento'});
+    foreach my $ev (@{$self->{DADOS}}) {
+
+        $out .= $Q->start_li();
+        $out .= $Q->div(
+            {CLASS=>'sumario'},$ev->{SUMARIO}
+        );
+        if ($ev->{DESCRICAO}) {
+            $out .= $Q->div(
+                {CLASS=>'descricao'},$ev->{DESCRICAO}
+            )
+        }
+        if ($ev->{LOCAL}) {
+            $out .= $Q->strong('Local: ');
+            $out .= $ev->{LOCAL};
+            $out .= $Q->br;
+        }
+        if ($ev->{ORGANIZADOR}) {
+            $out .= $Q->strong('Organizador: ');
+            $out .= $ev->{ORGANIZADOR};
+            $out .= $Q->br;
+        }
+        if ($ev->{DATA_INICIO}) {
+            $out .= $Q->strong('Início: ');
+            $out .= conv_data($ev->{DATA_INICIO});
+            if ($ev->{HORA_INICIO}) {
+                $out .= ' às ' . $ev->{HORA_INICIO}
+            }
+        }
+        if ($ev->{DATA_FIM}) {
+            $out .= $Q->br;
+            $out .= $Q->strong('Fim: ');
+            $out .= conv_data($ev->{DATA_FIM});
+            if ($ev->{HORA_FIM}) {
+                $out .= ' às ' . $ev->{HORA_FIM}
+            }
+        }
+        if ($ev->{URI}) {
+            $out .= $Q->br;
+            $out .= $ev->{URI}
+        }
+
+        if ($i < scalar @{$self->{DADOS}}) {
+            $out .= $Q->hr;
+        }
+
+        $out .= $Q->end_li;
+        $i++;
+    }
+
+    $out .= $Q->end_ul;
+    $out .= $Q->end_li;
+    $out .= $Q->end_ul;
+
+    return $out;
+}
+
+sub formata_mes {
+
+    my $self = shift;
+
+    my $out = $Q->start_ul({CLASS=>'caixa'});
+
+    my $activo = 'inactivo';
+    my $display = 'none';
+    if ($self->{MES} == (localtime)[4] + 1) { 
+        $display = 'block';
+        $activo = 'activo';
+    } elsif ($self->{MES} > (localtime)[4] + 1) {
+        $activo = 'proximo'
+    }
+
+    $out .= $Q->start_li();
+    $out .= $Q->h3(
+        {CLASS=>$activo},
+        $Q->a(
+            {
+                HREF => q{#},
+                ONCLICK => 'showhide(\'id' 
+                . $self->{ANO} 
+                . $self->{MES} 
+                . '\');return false;',
+            }, month_name($self->{MES})
+        )
+    );
+
+    $out .= $Q->start_div(
+        {
+            ID=>'id' . $self->{ANO} . $self->{MES},
+            STYLE => 'display:' . $display
+        }
+    );
+
+    foreach my $dia (sort {$b<=>$a} keys %{$self->{DADOS}}) {
+        $out .= formata_dia(
+            {
+                DIA   => $dia,
+                MES   => $self->{MES},
+                ANO   => $self->{ANO},
+                DADOS => $self->{DADOS}->{$dia},
+            }
+        );
+    }
+
+    $out .= $Q->end_div;
+    $out .= $Q->end_li;
+    $out .= $Q->end_ul;
+
+    return $out;
+}
+
+sub formata_ano {
+
+    my $self = shift;
+
+    my $activo = 'inactivo';
+    my $display = 'none';
+    if ($self->{ANO} == (localtime)[5] + 1900) { 
+        $display = 'block';
+        $activo = 'activo';
+    } elsif ($self->{ANO} > (localtime)[5] + 1900) {
+        $activo = 'proximo';
+    }
+
+    my $out = $Q->start_ul({CLASS=>'caixa'});
+    $out .= $Q->start_li();
+    $out .= $Q->h2(
+        {CLASS=>$activo},
+        $Q->a(
+            {
+                HREF => q{#},
+                ONCLICK => 'showhide(\'id' 
+                . $self->{ANO} 
+                . '\');return false;',
+            }, $self->{ANO}
+        )
+    );
+
+
+    $out .= $Q->start_div(
+        {
+            ID=>'id' . $self->{ANO},
+            STYLE => 'display:' . $display
+        }
+    );
+    foreach my $mes (sort {$b<=>$a} keys %{$self->{DADOS}}) {
+        $out .= formata_mes(
+            {
+                MES   => $mes,
+                ANO   => $self->{ANO},
+                DADOS => $self->{DADOS}->{$mes},
+            }
+        );
+    }
+    $out .= $Q->end_div;
+    $out .= $Q->end_li;
+    $out .= $Q->end_ul;
+    return $out;
+}
+
+sub css {
+
+    return<<"EOT"
+    body {
+        font-family      : sans-serif;
+        font-size        : 0.70em;
+        line-height      : 1.3em;
+        color            : #666;
+        background-color : #fff;
+        width            : 650px;
+        margin           : auto auto;
+    }
+    a:link {
+        color : navy;
+    }
+    a:visited {
+        color : purple;
+    }
+    a:hover, a:active {
+        color : #c00;
+    }
+    .sumario {
+        background-color : #fff;
+        color            : #000;
+        padding          : 0px;
+        font-weight      : bold;
+        font-size        : 1.3em;
+        line-height      : 1.5em;
+    }
+    h2 {
+        background-color : #e5e5e5;
+        color            : #333;
+        padding          : 5px;
+        border-left      : 25px solid #000;
+        margin           : 0px;
+        border-bottom    : 1px solid #333;
+    }
+    h3 {
+        border-bottom    : 1px solid #333;
+        padding          : 5px;
+        margin           : 0px;
+        border-left      : 25px solid #333;
+    }
+    h3.activo, h2.activo {
+        background-color : orange;
+        color            : #333;
+        border-left      : 25px solid #900;
+        border-bottom    : 1px solid #900;
+    }
+    h3.proximo {
+        background-color : #e5e5e5;
+        color            : #333;
+    }
+    h3.inactivo {
+        background-color : #e5e5e5;
+        color            : #333;
+    }
+    h4 {
+        background-color : #f5f5f5;
+        border-bottom    : 1px dotted #999;
+        color            : #333;
+        padding          : 3px;
+        margin           : 0px;
+        border-left      : 25px solid #999;
+    }
+    .descricao {
+        background-color : #f5f5f5;
+        color            : #333;
+        padding          : 3px;
+    }
+    blockquote.caixa {
+        border           : 1px solid #333;
+    }
+    ul.evento {
+        margin          : 0px;
+        padding         : 5px;
+        list-style-type : none;
+    }
+    ul.caixa {
+        border          : 0px solid #333;
+        margin          : 3px;
+        margin-left     : 20px;
+        padding         : 5px;
+        list-style-type : none;
+
+    }
+EOT
+
+}
+
+sub js {
+
+    return<<"EOT"
+    function showhide(id){
+        if (document.getElementById){
+            obj = document.getElementById(id);
+            if (obj.style.display == "none"){
+                obj.style.display = "block";
+            } else {
+                obj.style.display = "none";
+            }
+        }
+    }
+EOT
+
+}
+
+__END__
